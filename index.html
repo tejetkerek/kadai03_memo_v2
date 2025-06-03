@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>かんたん献立提案アプリ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="./css/style.css">
+    <style>
+      .hidden {
+        display: none;
+      }
+      .loading-ticker-wrap {
+        height: 200px;
+        background: linear-gradient(90deg, 
+          rgba(255,255,255,0) 0%, 
+          rgba(255,255,255,0.2) 20%, 
+          rgba(255,255,255,1) 50%,
+          rgba(255,255,255,0.2) 80%,
+          rgba(255,255,255,0) 100%
+        );
+      }
+      
+      .loading-ticker {
+        animation: ticker 15s linear infinite;
+      }
+
+      .loading-ticker img {
+        width: 300px;
+        height: 200px;
+        object-fit: cover;
+        margin: 0 1rem;
+      }
+
+      @keyframes ticker {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(-200%);
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-green-50 to-gray-100 min-h-screen font-sans flex flex-col">
+    <!-- メニューボタン -->
+    <button id="menu-trigger" class="fixed right-4 z-50 bg-white rounded-full p-2 shadow-lg hover:bg-gray-50 transition-transform duration-300 ease-in-out" style="top: 0.75rem;">
+      <svg class="w-6 h-6 text-gray-600 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </button>
+
+    <!-- サイドメニュー -->
+    <div id="side-menu" class="fixed top-0 right-0 w-64 h-full bg-white shadow-lg transform translate-x-full transition-transform duration-300 ease-in-out z-40">
+      <div class="h-full overflow-y-auto">
+        <div class="p-4">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">メニュー</h2>
+          <nav class="space-y-2">
+            <!-- ダッシュボード -->
+            <a href="#" class="menu-item block px-3 py-2 rounded-lg hover:bg-emerald-50 text-gray-700 hover:text-emerald-600" data-target="dashboard">
+              <span class="inline-flex items-center">
+                <span class="mr-2">📊</span>ダッシュボード
+              </span>
+            </a>
+
+            <!-- 材料登録 -->
+            <div class="space-y-1">
+              <div class="px-3 py-2 text-sm font-medium text-gray-500">材料登録</div>
+              <a href="#" class="menu-item block px-6 py-2 rounded-lg hover:bg-emerald-50 text-gray-700 hover:text-emerald-600" data-target="ocr">
+                <span class="inline-flex items-center">
+                  <span class="mr-2">📷</span>自動取込（OCR風）
+                </span>
+              </a>
+              <a href="#" class="menu-item block px-6 py-2 rounded-lg hover:bg-emerald-50 text-gray-700 hover:text-emerald-600" data-target="register">
+                <span class="inline-flex items-center">
+                  <span class="mr-2">📝</span>手動登録
+                </span>
+              </a>
+            </div>
+
+            <!-- 材料管理 -->
+            <div class="space-y-1">
+              <div class="px-3 py-2 text-sm font-medium text-gray-500">材料管理</div>
+            <a href="#" class="menu-item block px-3 py-2 rounded-lg hover:bg-emerald-50 text-gray-700 hover:text-emerald-600" data-target="list">
+              <span class="inline-flex items-center">
+                <span class="mr-2">📋</span>材料一覧
+              </span>
+            </a>
+
+            <!-- 献立 -->
+            <div class="space-y-1">
+              <div class="px-3 py-2 text-sm font-medium text-gray-500">献立管理</div>
+              <a href="#" class="menu-item block px-6 py-2 rounded-lg hover:bg-emerald-50 text-gray-700 hover:text-emerald-600" data-target="menu">
+                <span class="inline-flex items-center">
+                  <span class="mr-2">🍽️</span>今日の献立
+                </span>
+              </a>
+    
+            </div>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <!-- オーバーレイ -->
+    <div id="menu-overlay" class="fixed inset-0 bg-black opacity-0 pointer-events-none transition-opacity duration-300 ease-in-out z-30"></div>
+
+    <!-- メインコンテンツラッパー -->
+    <div id="main-wrapper" class="flex-1 transform transition-transform duration-300 ease-in-out flex flex-col min-h-screen">
+      <!-- ヘッダー -->
+      <header class="bg-gradient-to-r from-green-700 to-emerald-500 text-white shadow-lg">
+        <div class="relative w-full px-4 sm:px-6 lg:px-8 py-3">
+          <div class="flex items-center">
+            <a href="javascript:void(0)" id="refresh-logo" class="cursor-pointer absolute left-4">
+              <img src="/img/うちめしAI_ロゴ.png" alt="うちめしAI" class="h-12 w-auto">
+            </a>
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-wide text-center w-full">うちめしAI</h1>
+          </div>
+        </div>
+      </header>
+
+      <!-- メインコンテンツ -->
+      <main class="flex-grow flex flex-col relative">
+        <!-- ローディング画面（mainの中に移動） -->
+        <div id="loading-screen" class="absolute inset-0 bg-gradient-to-br from-emerald-50 to-gray-100 z-50">
+          <div class="h-full flex items-center justify-center">
+            <div class="loading-spinner"></div>
+            <div class="loading-ticker-wrap w-full overflow-hidden">
+              <div class="loading-ticker flex">
+                <!-- JavaScriptで動的に画像を追加 -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 h-full py-8 flex flex-col items-center justify-center">
+          <!-- ダッシュボード -->
+          <section id="dashboard" class="w-full max-w-4xl">
+            <div class="bg-white rounded-2xl shadow-xl p-4 sm:p-6 border border-emerald-100">
+              <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-emerald-700 flex items-center">
+                <span class="mr-2">📊</span>ダッシュボード
+              </h2>
+              
+              <!-- 1食単価の推移グラフ -->
+              <div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-4">1食単価の推移</h3>
+                <div class="bg-white p-4 rounded-xl border border-gray-200">
+                  <canvas id="priceChart" height="200"></canvas>
+                </div>
+              </div>
+            </div>
+          </section>
+
+
+
+          <!-- 材料登録 -->
+          <section id="register" class="w-full max-w-2xl">
+            <div class="bg-white rounded-2xl shadow-xl p-4 sm:p-6 border border-emerald-100">
+              <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-emerald-700 flex items-center">
+                <span class="mr-2">📝</span>材料を登録
+              </h2>
+              <form id="register-form" class="space-y-4">
+                <div id="register-rows" class="space-y-2">
+                  <div class="register-row bg-emerald-50 rounded-lg p-3 flex flex-col gap-2">
+                    <div class="flex flex-wrap gap-2">
+                      <input
+                        id="date"
+                        type="date"
+                        class="form-input w-36"
+                        placeholder="日付"
+                      />
+                      <input
+                        id="shop"
+                        type="text"
+                        placeholder="購入店舗"
+                        class="form-input w-28"
+                      />
+                      <input
+                        id="address"
+                        type="text"
+                        placeholder="住所"
+                        class="form-input flex-1 min-w-[120px]"
+                      />
+                    </div>
+                    <div class="flex flex-wrap gap-2 items-end">
+                      <input
+                        id="name"
+                        type="text"
+                        placeholder="材料名"
+                        class="form-input flex-1 min-w-[90px]"
+                      />
+                      <input
+                        id="amount"
+                        type="number"
+                        placeholder="量 (g)"
+                        class="form-input w-20"
+                      />
+                      <input
+                        id="price"
+                        type="number"
+                        placeholder="値段"
+                        class="form-input w-24"
+                      />
+                      <button type="button" class="delete-register-row text-red-400 hover:text-red-600 ml-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex flex-col items-center gap-2">
+                  <button id="register-add-row" type="button" class="btn-primary w-full sm:w-auto mb-2">＋行を追加</button>
+                  <button id="saveBtn" type="button" class="btn-primary w-full sm:w-1/2 mx-auto">登録する</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <!-- 材料一覧 -->
+          <section id="list" class="w-full max-w-4xl hidden">
+            <div class="bg-white rounded-2xl shadow-xl p-4 sm:p-6 border border-emerald-100">
+              <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-emerald-700 flex items-center">
+                <span class="mr-2">📋</span>材料リスト
+              </h2>
+              <div id="filter-badges" class="flex flex-wrap gap-2 mb-4"></div>
+              <div class="overflow-x-auto">
+                <table class="min-w-full whitespace-nowrap bg-white border rounded-xl">
+                  <thead>
+                    <tr class="bg-emerald-50">
+                      <th class="p-2 w-10">
+                        <input type="checkbox" id="select-all" class="form-checkbox text-emerald-500 rounded w-5 h-5">
+                      </th>
+                      <th class="p-2 w-32">日付</th>
+                      <th class="p-2 w-36">店舗</th>
+                      <th class="p-2 w-40">材料名</th>
+                      <th class="p-2 w-28">値段</th>
+                      <th class="p-2 w-10"></th>
+                    </tr>
+                    <tr id="filter-row" class="hidden">
+                      <th></th>
+                      <th id="filter-date-cell" class="p-2"><input id="filter-date" type="date" class="form-input w-full" /></th>
+                      <th id="filter-shop-cell" class="p-2"><input id="filter-shop" type="text" placeholder="店舗名" class="form-input w-full" /></th>
+                      <th id="filter-name-cell" class="p-2"><input id="filter-name" type="text" placeholder="材料名" class="form-input w-full" /></th>
+                      <th id="filter-price-cell" class="p-2">
+                        <div class="flex gap-1">
+                          <input id="filter-price-min" type="number" placeholder="最小" class="form-input w-full" />
+                          <input id="filter-price-max" type="number" placeholder="最大" class="form-input w-full" />
+                        </div>
+                      </th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="materialList"></tbody>
+                </table>
+              </div>
+              <div class="flex justify-between mt-8">
+                <button id="deleteSelectedBtn" class="btn-danger bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-sm">選択した材料を削除</button>
+                <button id="generateBtn" class="btn-primary bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-sm">献立を提案</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- 献立提案 -->
+          <section id="menu" class="w-full max-w-2xl hidden">
+            <div class="bg-white rounded-2xl shadow-xl p-4 sm:p-6 border border-emerald-100">
+              <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-emerald-700 flex items-center">
+                <span class="mr-2">🍽️</span>うちめしAIで献立提案
+              </h2>
+
+              <!-- レシピサービス選択 -->
+              <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">参照するレシピサービス（複数選択可）</label>
+                <div class="bg-white rounded-lg p-4 border border-gray-200">
+                  <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
+                    <label class="flex items-center col-span-2 cursor-pointer hover:text-emerald-600">
+                      <input type="checkbox" class="form-checkbox text-emerald-500 rounded w-5 h-5" name="recipe-service" value="cookpad">
+                      <span class="ml-3 whitespace-nowrap">COOKPAD</span>
+                    </label>
+                    
+                    <label class="flex items-center col-span-2 cursor-pointer hover:text-emerald-600">
+                      <input type="checkbox" class="form-checkbox text-emerald-500 rounded w-5 h-5" name="recipe-service" value="kurashiru">
+                      <span class="ml-3 whitespace-nowrap">クラシル</span>
+                    </label>
+                    
+                    <label class="flex items-center col-span-2 cursor-pointer hover:text-emerald-600">
+                      <input type="checkbox" class="form-checkbox text-emerald-500 rounded w-5 h-5" name="recipe-service" value="erecipe">
+                      <span class="ml-3 whitespace-nowrap">E・レシピ</span>
+                    </label>
+                    
+                    <label class="flex items-center col-span-2 cursor-pointer hover:text-emerald-600">
+                      <input type="checkbox" class="form-checkbox text-emerald-500 rounded w-5 h-5" name="recipe-service" value="rakuten">
+                      <span class="ml-3 whitespace-nowrap">楽天レシピ</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 追加情報入力 -->
+              <div class="space-y-4 mb-6">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">苦手な食材・アレルギー（任意）</label>
+                  <textarea id="dislike-ingredients" class="form-textarea w-full" rows="2" placeholder="例：ピーマン、えび"></textarea>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">特に消費したい食材（任意）</label>
+                  <textarea id="priority-ingredients" class="form-textarea w-full" rows="2" placeholder="例：なす3本、トマト2個"></textarea>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">作る人数</label>
+                  <div class="flex items-center">
+                    <input type="number" id="serving-size" class="form-input w-20" min="1" value="2" placeholder="人数">
+                    <span class="ml-1">人分</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">その他の要望（任意）</label>
+                  <textarea id="other-requests" class="form-textarea w-full" rows="3" placeholder="例：時短レシピが良い、和食が食べたい、など"></textarea>
+                </div>
+              </div>
+
+              <!-- 提案ボタン -->
+              <button id="generateBtn" class="btn-primary w-full mb-6">
+                うちめしAIに相談する
+              </button>
+
+              
+            </div>
+          </section>
+
+          <!-- OCRごっこ画面 -->
+          <section id="ocr" class="w-full max-w-2xl hidden">
+            <div class="bg-white rounded-2xl shadow-xl p-4 sm:p-6 border border-emerald-100">
+              <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-emerald-700 flex items-center">
+                <span class="mr-2">📷</span>OCRごっこ
+              </h2>
+              <div class="space-y-4">
+                <div class="input-group">
+                  <input 
+                    id="ocr-image" 
+                    type="file" 
+                    accept="image/*" 
+                    class="file-input"
+                  />
+                </div>
+                <img id="ocr-preview" class="w-full max-w-xs mx-auto rounded-lg shadow-md hidden" />
+                <div id="ocr-rows" class="space-y-2">
+                  <!-- JSで行を追加 -->
+                </div>
+                <button id="ocr-add-row" type="button" class="btn-primary w-full mb-2">＋行を追加</button>
+                <button id="ocr-add-btn" class="btn-primary w-full">
+                  材料として登録する
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <!-- フッター -->
+      <footer class="bg-white/80 backdrop-blur-md py-4 sm:py-6 border-t border-emerald-100">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm sm:text-base text-emerald-700">
+          <p>&copy; 2024 うちめしAI All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+
+    <!-- スクリプト -->
+    <script src="./js/script.js"></script>
+  </body>
+</html>
